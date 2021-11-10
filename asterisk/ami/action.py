@@ -29,7 +29,7 @@ class Action(object):
 
 class SimpleAction(Action):
     def __init__(self, name, **kwargs):
-        super(SimpleAction, self).__init__(name=name, keys=kwargs)
+        super(SimpleAction, self).__init__(name=name, keys=kwargs, variables=kwargs['Variable'])
 
 
 class LoginAction(Action):
