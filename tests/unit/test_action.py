@@ -47,3 +47,13 @@ class AMIActionTest(unittest.TestCase):
         self.assertEqual(action['<Variable 1>'], '<Value 1>')
         action.Channel = 'channel-2'
         self.assertEqual(action.Channel, 'channel-2')
+
+    def test_with_multiple_variables(self):
+        action = SimpleAction('SetVar', Channel='channel-1')
+        action['VAR1'] = 'val1'
+        action['VAR2'] = 'val2'
+        result = str(action)
+        self.assertIn('Variable: VAR1=val1', result)
+        self.assertIn('Variable: VAR2=val2', result)
+        self.assertEqual(action['VAR1'], 'val1')
+        self.assertEqual(action['VAR2'], 'val2')

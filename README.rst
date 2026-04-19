@@ -84,6 +84,21 @@ Send an action
     )
     client.send_action(action)
 
+To pass channel variables use ``action['VAR'] = 'value'``:
+
+.. code-block:: python
+
+    action = SimpleAction(
+        'Originate',
+        Channel='SIP/2010',
+        Exten='2010',
+        Priority=1,
+        Context='default',
+    )
+    action['MYVAR'] = 'myvalue'
+    action['CALLERID'] = '1234'
+    client.send_action(action)
+
 
 Send an action with adapter
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~

@@ -52,6 +52,14 @@ class AMIClient(object):
     asterisk_start_regex = re.compile(r'^Asterisk *Call *Manager/(?P<version>([0-9]+\.)*[0-9]+)', re.IGNORECASE)
     asterisk_line_regex = re.compile(b'\r\n', re.IGNORECASE | re.MULTILINE)
     asterisk_pack_regex = re.compile(b'\r\n\r\n', re.IGNORECASE | re.MULTILINE)
+    asterisk_start_list_regex = re.compile(
+        rb'^Response: Success\r\nActionID: \d+\r\nEventList: start',
+        re.IGNORECASE | re.MULTILINE
+    )
+    asterisk_end_list_regex = re.compile(
+        b'EventList: Complete\r\n.+\r\n.+\r\n\r\n',
+        re.IGNORECASE | re.MULTILINE
+    )
 
     def __init__(self, address='127.0.0.1', port=5038,
                  encoding='utf-8', encoding_errors='replace',
@@ -83,6 +91,7 @@ class AMIClient(object):
         self._socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self._socket.settimeout(self._timeout)
         self._socket.connect((self._address, self._port))
+        self._socket.settimeout(None)
         self.finished = threading.Event()
         self._thread = threading.Thread(target=self.listen)
         self._thread.daemon = True
@@ -113,10 +122,13 @@ class AMIClient(object):
             listener.on_unknown(source=self, **kwargs)
 
     def disconnect(self):
-        self.finished.set()
+        if self.finished:
+            self.finished.set()
         try:
-            self._socket.close()
-            self._thread.join(self._timeout)
+            if self._socket:
+                self._socket.close()
+            if self._thread:
+                self._thread.join(self._timeout)
         except:
             pass
 
@@ -161,7 +173,13 @@ class AMIClient(object):
                 yield self._decode_pack(pack)
                 break
         while not self.finished.is_set():
-            while self.asterisk_pack_regex.search(data):
+            is_list = self.asterisk_start_list_regex.match(data)
+            list_ends = self.asterisk_end_list_regex.search(data)
+            if is_list and list_ends:
+                ending = list_ends.group()
+                (pack, data) = self.asterisk_end_list_regex.split(data, 1)
+                yield self._decode_pack(pack + ending)
+            elif not is_list and self.asterisk_pack_regex.search(data):
                 (pack, data) = self.asterisk_pack_regex.split(data, 1)
                 yield self._decode_pack(pack)
             recv = self._socket.recv(self._buffer_size)
@@ -303,6 +321,7 @@ class AutoReconnect(threading.Thread):
                 return True
             self.on_disconnect(self._ami_client, response)
         except Exception as ex:
+            self._ami_client.disconnect()
             self.on_disconnect(self._ami_client, ex)
         return False
 
