@@ -4,7 +4,7 @@ import threading
 
 class Response(object):
     match_regex = re.compile('^Response: .*', re.IGNORECASE)
-    key_regex = re.compile('^[a-zA-Z0-9_\-]+$')
+    key_regex = re.compile(r'^[a-zA-Z0-9_\-]+$')
 
     @staticmethod
     def read(response):
@@ -17,11 +17,17 @@ class Response(object):
         follows = []
         keys_and_follows = iter(lines[1:])
         for line in keys_and_follows:
+            if not line:
+                continue
             try:
                 (key, value) = line.split(':', 1)
                 if not Response.key_regex.match(key):
                     raise key
-                keys[key.strip()] = value.strip()
+                k = key.strip()
+                if k in keys:
+                    keys[k] += f"\n{value.strip()}"
+                else:
+                    keys[k] = value.strip()
             except:
                 follows.append(line)
                 break
@@ -70,9 +76,10 @@ class FutureResponse(object):
             self._lock.release()
 
     def get_response(self):
-        if self._response is not None:
-            return self._response
         self._lock.acquire()
+        if self._response is not None:
+            self._lock.release()
+            return self._response
         self._lock.wait(self._timeout)
         self._lock.release()
         return self._response
